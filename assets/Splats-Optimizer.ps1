@@ -85,7 +85,7 @@ $ProfilePath = Join-Path $ScriptDir 'Splats-Optimizer-profile.json'
 $LogDir      = Join-Path $ScriptDir 'logs'
 $FontDir     = Join-Path $ScriptDir 'fonts'
 $IconDir     = Join-Path $ScriptDir 'icons'
-$AppVersion  = '1.0.0'
+$AppVersion  = '1.0.1'
 $UpdateRepo  = 'wesplat2/splats-optimizer'    # github repo to update from - empty means updates are off
 
 # =================================================================
@@ -3284,7 +3284,6 @@ $window.Add_ContentRendered({
     Update-Status
     Update-Toggles
     Start-AppScan
-    Start-UpdateCheck $false
     $timer.Start()
 })
 $window.Add_Closing({
