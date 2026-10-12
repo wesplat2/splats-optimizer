@@ -9,12 +9,6 @@ windows debloat / tweak tool with a gui. run `Splats Optimizer.exe` (asks for ad
 
 hit **check for updates** on the start page. it compares your version with `version.json` here and offers to update if there's a newer one.
 
-## shipping an update
-
-1. bump the app version (`AppVersion` at the top of the app script in `assets/`)
-2. put the same version (plus a short note) in `version.json`
-3. push to `main`
-
 ## rebuilding the exe
 
 ```
