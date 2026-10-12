@@ -1,4 +1,4 @@
 {
-  "version": "1.0.1",
-  "notes": "updates are now only checked when you press check for updates."
+  "version": "1.0.2",
+  "notes": "updates now come from releases only."
 }

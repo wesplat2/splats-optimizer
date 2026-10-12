@@ -85,7 +85,7 @@ $ProfilePath = Join-Path $ScriptDir 'Splats-Optimizer-profile.json'
 $LogDir      = Join-Path $ScriptDir 'logs'
 $FontDir     = Join-Path $ScriptDir 'fonts'
 $IconDir     = Join-Path $ScriptDir 'icons'
-$AppVersion  = '1.0.1'
+$AppVersion  = '1.0.2'
 $UpdateRepo  = 'wesplat2/splats-optimizer'    # github repo to update from - empty means updates are off
 
 # =================================================================
@@ -3190,24 +3190,26 @@ if ($window.Height -gt $wa.Height - 30) { $window.Height = [math]::Max($window.M
 if ($window.Width -gt $wa.Width - 30) { $window.Width = [math]::Max($window.MinWidth, $wa.Width - 30) }
 
 # ---------------------------------------------------------------- updates (from GitHub)
-# version.json on the repo's main branch says what's current; updating downloads the
-# repo zip and swaps in every changed file (logs and your saved picks are left alone).
+# Only published GitHub releases count: the latest release's tag is the current version and its
+# zip is what gets installed. Every changed file is swapped in (logs and saved picks are left alone).
 $UpdateCheckCode = @'
 param($sync, $repo)
 try {
-    $v = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/$repo/main/version.json" -UseBasicParsing -TimeoutSec 15 -Headers @{ 'Cache-Control' = 'no-cache' }
-    $sync.Queue.Enqueue(@{ T = 'update'; Version = [string]$v.version; Notes = [string]$v.notes })
+    $r = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -UseBasicParsing -TimeoutSec 15 -Headers @{ Accept = 'application/vnd.github+json' }
+    $zipUrl = @($r.assets | Where-Object { $_.name -like '*.zip' } | ForEach-Object { $_.browser_download_url })[0]
+    $sync.Queue.Enqueue(@{ T = 'update'; Version = ([string]$r.tag_name).TrimStart('v', 'V'); Notes = [string]$r.body; ZipUrl = $zipUrl })
 } catch { $sync.Queue.Enqueue(@{ T = 'update'; Error = $_.Exception.Message }) }
 '@
 
 $UpdateApplyCode = @'
-param($sync, $repo, $appRoot)
+param($sync, $zipUrl, $appRoot)
 $ProgressPreference = 'SilentlyContinue'
 $tmp = Join-Path $env:TEMP ('splat-update-' + [guid]::NewGuid())
 try {
     $null = New-Item -ItemType Directory -Path $tmp -Force
     $zip = Join-Path $tmp 'update.zip'
-    Invoke-WebRequest -Uri "https://github.com/$repo/archive/refs/heads/main.zip" -OutFile $zip -UseBasicParsing -TimeoutSec 180
+    if (-not $zipUrl) { throw 'that release has no zip attached, nothing was changed.' }
+    Invoke-WebRequest -Uri $zipUrl -OutFile $zip -UseBasicParsing -TimeoutSec 180
     Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $tmp 'x') -Force
     $src = Get-ChildItem -LiteralPath (Join-Path $tmp 'x') -Directory | Select-Object -First 1
     if (-not $src -or -not (Test-Path -LiteralPath (Join-Path $src.FullName 'assets\Splats-Optimizer.ps1'))) { throw 'the download doesn''t look like splat''s optimizer, nothing was changed.' }
@@ -3267,7 +3269,7 @@ function Resolve-UpdateMsg {
         }
         $UpdateBtn.IsEnabled = $false
         $UpdateBtn.Content = "Updating$([char]0x2026)"
-        $script:MiscJobs.Add((Start-Bg $UpdateApplyCode @($sync, $UpdateRepo, (Split-Path $ScriptDir))))
+        $script:MiscJobs.Add((Start-Bg $UpdateApplyCode @($sync, $m.ZipUrl, (Split-Path $ScriptDir))))
     } elseif ($m.T -eq 'updated') {
         if ($m.Error) { [void](Show-Dialog -Title 'update failed' -Body $m.Error); return }
         $body = "updated $($m.Changed) file(s)."
